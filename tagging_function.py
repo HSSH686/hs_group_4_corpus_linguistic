@@ -22,14 +22,14 @@ def tag_file(file_path):
     Returns:
         Saves a .txt file of the tagged and dependency-parsed corpus
 
-        Example of tagged word: NN_morning_11_dobj_6_morning_TIME
+        Example of tagged word: NNS_contents_17_dobj_15_content_noNE
         0: Penn POS tag
         1: token text
-        2: index within whole file (11th word in this case)
+        2: index within whole file (17th token in this case)
         3: its dependency relation
         4: index of its head
-        5: token lemma (eg, 'have' if the word were 'had'
-        6: the named entity
+        5: token lemma
+        6: named entity (eg, PERSON if token is someone's name, as in NNP_Komaroff_75_pobj_73_Komaroff_PERSON)
     """
     # Open file
     with open(file_path, "r", encoding="utf8") as textfile:
@@ -40,6 +40,7 @@ def tag_file(file_path):
         tagged = nlp(string)
 
     # Write a new .txt file for tagged and dependency parsed text
+    # New file saved in same directory as original file
     print("Now creating tagged file")
     with open(file_path.replace('.txt', '') + "_parsed.txt", "w", encoding="utf8") as f:
         # Go through each sentence
@@ -59,7 +60,7 @@ def tag_file(file_path):
 # CALLING FUNCTION
 #---------------------------------------------------------------------------
 # Location of help KWIC file
-Hansard_2000_KWIC = r"C:\Users\helen\OneDrive - The University of Manchester\Corpus Linguistics\Hansard_tests\help_all_files.txt"
+Hansard_2000_KWIC = r"C:\Users\helen\Downloads\help_all_files.txt"
 
 # Calling function on above file
 tag_file(Hansard_2000_KWIC)
