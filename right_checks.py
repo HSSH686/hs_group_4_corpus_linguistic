@@ -1,19 +1,55 @@
 # Libraries
 import re
 
-# TODO: eliminate 'helping' as in 'helping hand' from being counted in object occurrences. Also check verb properties for this
-## Could do by checking if next work after helping is hand and eliminating if so
-
-# TODO: intervening_words counter is counting 's as in "one's thoughts" as a seperate token and incrementing
-## maybe have if loop in the verb sections saying if the found_object flag is on and next word is "'s", then decrement
-## intervening words by 1?
-## Alt maybe have an apostrophe 's counter and minus that value from intervening words at the end??
-
 parsed_file = r"C:\Users\helen\Downloads\help_all_files_parsed.txt"
 
 # Initialise results string (ONLY OBJ AND HELP PROPERTIES!!)
 # HelpPosition = location of help word in whole KWIC file (not the hit counter!!) <-- just for my reference
 results = "HelpPosition\tDepVar\tHelpClass\tHelpInflection\tVerbLemma\tInterveningWords\tObjPresent\tObjPronoun\tObjLength\tObjHead\n"
+
+# --------------------------------------------------------------------------------------------------
+# FUNCTIONS
+# --------------------------------------------------------------------------------------------------
+
+# Function to find the object head
+def head_hunting(tagged_text_words, obj_words_list, desired_dependency, desired_parent_lemma):
+    """
+        Find the head of the object. Potentially could be used to find the subject head too.
+
+        Args:
+            tagged_text_words = a list of tagged words (example tagged word: NN_boy_44_dobj_42_boy_noNE)
+            obj_words_list = a list of the words in the object
+            desired_dependency = a string of the desired dependency relation (eg, dobj, nsubj)
+            desired_parent_lemma = a string of the desired lemma of the parent (in our case, help)
+
+        Returns:
+            One of two strings can be returned:
+            (1) the word that is the head (eg, NN_boy_44_dobj_42_boy_noNE)
+            (2) the string "TODO_TODO_TODO_TODO_TODO_TODO_TODO" if the head cannot be found (in which case, may need to evaluate manually)
+        """
+    # If only one word in list, that word is the head
+    if len(obj_words_list) == 1:
+        return obj_words_list[0]
+
+    # Below runs if len(obj_words_list) > 1
+    for word in obj_words_list:
+        parts = word.split('_')
+
+        # If dependency relation == 'dobj'
+        if parts[3] == desired_dependency:
+
+            # Get the index of word's dependency relation
+            parent_index = int(parts[4])
+
+            # Go to the parent token see if its lemma is help
+            parent_parts = tagged_text_words[parent_index].split('_')
+
+            # Return word if its parent's lemma is 'help'
+            if parent_parts[5].lower() == desired_parent_lemma:
+                return word
+
+    # If have not found head from above, return 7-part to-do string for further review
+    return "TODO_TODO_TODO_TODO_TODO_TODO_TODO"
 
 # ---------------------------------------------------------
 # Getting variables in right context window
@@ -42,7 +78,7 @@ else:
         help_count = len(help_positions)  # Variable to count instances of help
 
         # -------------------------------------------
-        # Star loop for right checks
+        # Start loop for right checks
         # -------------------------------------------
         # Going through each occurrence of help
         for pos in help_positions:
@@ -57,15 +93,18 @@ else:
             # -------------------------------------------
             # Variables
             # -------------------------------------------
+            help_dv = "" # TO, BARE, ING, INING, NA
             help_class = "" # VERB, NOUN, ADJ, ADV, OTHER
             intervening_words = 0 # Intervening words between help and infinitive
             obj_present = ""  # Is there a dobj argument for 'help'?
             obj_pronoun = ""
             obj_length = ""
-            obj_head = "TODO!!!"  # TODO
+            obj_head = ""
             words_to_review = 30  # how many words after "help" are we going to consider?
             verb_after_help = ""
-            help_dv = ""
+
+            # List for storing words in object to facilitate finding head
+            obj_words = []
 
             # -------------------------------------------
             # Flags and counters
@@ -77,9 +116,10 @@ else:
             found_in = False
             found_verb = False
             found_object = False
+            apostrophe_s = False
 
             # -------------------------------------------
-            # Looping through 30 word after help
+            # Looping through 30 words after help
             # -------------------------------------------
             for i in range(1, words_to_review + 1):
                 if pos + i >= len(tagged_words):
@@ -112,18 +152,27 @@ else:
                 # Break if encounter these words
                 if next_word.lower() in ['and', 'or', 'are', 'if']:
                     break
+                # Break if get 'helping hand'
+                if help_word.lower() == "helping" and next_word.lower() == "hand":
+                    help_dv = "NA"
+                    help_class = "ADJ"
+                    help_tag = "JJ"
+                    intervening_words = "NA"
+                    obj_present = "NA"
+                    obj_pronoun = "NA"
+                    obj_length = "NA"
+                    obj_head = "NA"
+                    break
 
                 # -------------------------------------------------------------------
                 # Object-related properties
                 # -------------------------------------------------------------------
                 # If haven't found a verb yet, potentially have an object
                 if not found_verb:
-                    # TODO: Need to add pronoun that: The event in the white building. She helps that run smoothly.
-                    # TODO: Need to add pronoun this: She helps this run smoothly.
                     # If next word id a pronoun
                     if (next_tag == 'PRP' or
                             next_word.lower() in ['someone', 'anyone', 'who', 'myself', 'yourself',
-                                                  'herself', 'himself', 'themself', 'themselves']):
+                                                  'herself', 'himself', 'themself', 'themselves', 'this', 'that']):
                         obj_pronoun = "PRO"
                         found_object = True
                     # If not a pronoun, check other potential object types
@@ -133,15 +182,18 @@ else:
 
                 # if found an object
                 if found_object:
-                    # Don't want to increment if one of the items in list holds (ie, if hit the end of the obj clause)
-                    if not (next_word.lower() in ['to'] or next_tag in ['RB', 'TO', 'POS'] or next_tag.startswith('VB')):
-                        obj_length_counter += 1
+                    if next_tag == 'POS':
+                        apostrophe_s = True
+                    else:
+                        # Don't want to increment if one of the items in list holds (ie, if hit the end of the obj clause)
+                        if not (next_word.lower() in ['to'] or next_tag in ['RB', 'TO', 'POS'] or next_tag.startswith(
+                                'VB')):
+                            obj_length_counter += 1
+                            obj_words.append(tagged_words[pos + i])
 
                 # -------------------------------------------------------------------
                 # Finding verb in complement
                 # -------------------------------------------------------------------
-                # TODO: Use dependency to exclude verbs where end up at dobj where that dobj's dependency is help, or a word like 'who'
-                ## maybe put the above in a function so can recur as follow dependency relations
 
                 # Check for '"to": helps to supply
                 if not found_bare and not found_in and not found_ing and next_tag == 'TO' or next_word.lower() == 'to':
@@ -159,18 +211,30 @@ else:
                                 found_to = True
                                 verb_after_help = verb_lemma
                                 found_verb = True
-                                intervening_words = i + j - 2
+
+                                if apostrophe_s:
+                                    # Subtract 3 so as not to include apostrophe 's' ('s) as an intervening word
+                                    intervening_words = i + j - 3
+                                else:
+                                    intervening_words = i + j - 2
+
                                 break
 
                 # Check for -ing form verbs: help doing
-                # Exclude according: help according to
+                # Exclude according: help according to,
                 elif not found_to and not found_in and not found_bare and next_tag in ['VBG',
                                                                                        'HVG','BEG'] and next_word not in [
                          "according"]:
+
                     found_ing = True
                     verb_after_help = next_lemma
                     found_verb = True
-                    intervening_words = i - 1
+                    if apostrophe_s:
+                        # Subtract 3 so as not to include apostrophe 's' ('s) as an intervening word
+                        intervening_words = i - 2
+                    else:
+                        intervening_words = i - 1
+
                     break
 
                 # Check for bare infinitive
@@ -178,7 +242,12 @@ else:
                     found_bare = True
                     verb_after_help = next_lemma
                     found_verb = True
-                    intervening_words = i - 1
+                    if apostrophe_s:
+                        # Subtract 3 so as not to include apostrophe 's' ('s) as an intervening word
+                        intervening_words = i - 2
+                    else:
+                        intervening_words = i - 1
+
                     break
 
                 # Break loop looking at words after help if verb found
@@ -207,12 +276,17 @@ else:
                 if found_object:
                     obj_present = "Yes" # dobj present
                     obj_length = obj_length_counter
+
+                    # Recording obj head
+                    obj_head_parts = head_hunting(tagged_words, obj_words, "dobj", "help").split('_')
+                    obj_head = obj_head_parts[1]
+
                     # Obj NP if length is more than 1
                     if obj_length_counter > 1:
                         obj_pronoun = "NP"
                     # If obj length 1 and haven't yet recorded the obj_pronoun variable
                     elif obj_pronoun == "" and obj_length_counter == 1:
-                        obj_pronoun = "PRO"
+                            obj_pronoun = "PRO"
                 # If have no object before the complement
                 else:
                     obj_present = "No" # complement after help but no dobj
@@ -221,6 +295,7 @@ else:
                     obj_head = "NA"
             # no complement after help
             else:
+                verb_after_help = "NA"
                 obj_present = "NA"
                 obj_pronoun = "NA"
                 obj_length = "NA"
@@ -243,13 +318,17 @@ else:
             results += f"{pos}\t{help_dv}\t{help_class}\t{help_tag}\t{verb_after_help}\t{intervening_words}\t{obj_present}\t{obj_pronoun}\t{obj_length}\t{obj_head}\n"
 
 #--------------------------------------------------------------------------------------
-# END
+# RESULTS
 #--------------------------------------------------------------------------------------
 print(results)
 
 # Write results to txt file
 with open("results.txt", "w", encoding="utf-8") as f:
   f.write(results)
+
+#--------------------------------------------------------------------------------------
+# END
+#--------------------------------------------------------------------------------------
 
 
 
