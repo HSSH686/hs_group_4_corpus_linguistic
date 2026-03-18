@@ -1,5 +1,7 @@
 # Import libraries, resources, initialise spacy nlp pipeline
 
+import re
+
 import nltk
 nltk.download("punkt")
 nltk.download("punkt_tab")
@@ -35,10 +37,35 @@ def tag_file(file_path):
     with open(file_path, "r", encoding="utf8") as textfile:
         string = textfile.read()
 
+        # --------------------------------------------------------------------
+        # PRE-PROCESSING + TAGGING
+        # --------------------------------------------------------------------
+        # Pre-processing just in case
+        # Replacing with space
+        repl_with_space = ["\n", "^"]
+
+        for item in repl_with_space:
+            string = string.replace(item, ' ')
+
+        # Replacing *+ with pound symbol
+        string = string.replace("*+", "£")
+
+        # Replacing with nothing:
+        repl_with_nothing = [r'\*\<\*\d+', r'\*\d+']
+
+        for item in repl_with_nothing:
+            string = re.sub(item, "", string)
+
+        text_content_tokens = word_tokenize(string)
+        string = " ".join(text_content_tokens)
+
         # Tag file
         print("Now tagging file")
         tagged = nlp(string)
 
+    # --------------------------------------------------------------------
+    # WRITING PARSED TEXT FILE
+    # --------------------------------------------------------------------
     # Write a new .txt file for tagged and dependency parsed text
     # New file saved in same directory as original file
     print("Now creating tagged file")
@@ -64,9 +91,3 @@ Hansard_2000_KWIC = r"C:\Users\helen\Downloads\help_all_files.txt"
 
 # Calling function on above file
 tag_file(Hansard_2000_KWIC)
-
-
-
-
-
-
